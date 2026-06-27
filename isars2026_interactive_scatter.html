@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISARS 2026 연구 분포 — 인터랙티브</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --ink:#2e2a26; --muted:#8a8278; --grid:#e4dfd4; --line:#d8d2c6;
+    --c0:#3d8b7c; --c1:#d56b54; --c2:#d6a02e; --c3:#8b7bc4; --c4:#a8a299;
+  }
+  *{box-sizing:border-box;}
+  .iz-wrap{
+    background:var(--bg); color:var(--ink);
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+    padding:26px 22px 20px; max-width:1040px; margin:0 auto;
+    -webkit-font-smoothing:antialiased;
+  }
+  .iz-title{font-size:26px; font-weight:800; letter-spacing:-.01em; margin:0 0 6px;}
+  .iz-sub{font-size:14px; color:var(--muted); margin:0 0 18px; line-height:1.5;}
+  .iz-legend{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:6px;}
+  .iz-chip{
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    border:1.5px solid transparent; border-radius:999px;
+    padding:6px 13px 6px 10px; font-size:13.5px; font-weight:600;
+    background:rgba(0,0,0,.035); transition:all .18s ease; user-select:none;
+    white-space:nowrap;
+  }
+  .iz-chip .dot{width:12px; height:12px; border-radius:50%; flex:0 0 auto;}
+  .iz-chip .num{color:var(--muted); font-weight:500; font-variant-numeric:tabular-nums;}
+  .iz-chip:hover{background:rgba(0,0,0,.07);}
+  .iz-chip.off{opacity:.4; filter:grayscale(.7);}
+  .iz-chip.solo{border-color:currentColor; background:rgba(0,0,0,.02);}
+  .iz-reset{
+    cursor:pointer; border:1.5px solid var(--line); border-radius:999px;
+    padding:6px 14px; font-size:13px; font-weight:600; background:transparent;
+    color:var(--muted); transition:all .18s ease; font-family:inherit;
+  }
+  .iz-reset:hover{border-color:var(--ink); color:var(--ink);}
+  .iz-caption{font-size:13px; color:var(--muted); margin:10px 0 4px; min-height:18px; font-variant-numeric:tabular-nums;}
+  .iz-caption b{color:var(--ink); font-weight:700;}
+  .iz-plot{position:relative; width:100%;}
+  .iz-svg{width:100%; height:auto; display:block; overflow:visible; touch-action:manipulation;}
+  .iz-dot{transition:opacity .25s ease; cursor:pointer;}
+  .iz-dot.hidden{opacity:0; pointer-events:none;}
+  .iz-tip{
+    position:absolute; pointer-events:none; z-index:20; opacity:0; transform:translateY(2px);
+    transition:opacity .12s ease; background:#2e2a26; color:#f4f1ea;
+    border-radius:8px; padding:8px 11px; font-size:12.5px; line-height:1.45;
+    max-width:230px; box-shadow:0 6px 22px rgba(0,0,0,.22);
+  }
+  .iz-tip.show{opacity:1;}
+  .iz-tip .nm{font-weight:700; font-size:13px;}
+  .iz-tip .meta{color:#cfc8ba; margin-top:2px;}
+  .iz-tip .tag{display:inline-block; margin-top:5px; font-size:11px; padding:1px 7px; border-radius:6px; background:rgba(255,255,255,.16);}
+  .iz-foot{font-size:12px; color:var(--muted); margin-top:12px; text-align:center; line-height:1.5;}
+  .iz-axisname{font-size:12px; fill:var(--muted); font-weight:600;}
+  .iz-xlab{font-size:12px;} .iz-ylab{font-size:11.5px; fill:var(--ink);}
+  @media (max-width:640px){
+    .iz-wrap{padding:18px 12px;}
+    .iz-title{font-size:21px;}
+    .iz-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+    .iz-scroll .iz-plot{min-width:680px;}
+  }
+</style>
+</head>
+<body>
+<div class="iz-wrap">
+  <h1 class="iz-title">연구 분포 XY 산점도</h1>
+  <p class="iz-sub">주제 축(전통→디지털) × 방법 축(현지→계산), 색은 연구자 권역입니다. 아래 권역 이름을 누르면 그 점만 남고, 다시 누르면 전체로 돌아옵니다. 둘 이상 눌러 비교할 수도 있습니다.</p>
+
+  <div class="iz-legend" id="izLegend"></div>
+  <div class="iz-caption" id="izCaption"></div>
+
+  <div class="iz-scroll">
+    <div class="iz-plot" id="izPlot">
+      <svg class="iz-svg" id="izSvg" viewBox="0 0 1000 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="연구자 권역별 주제·방법 분포 산점도"></svg>
+      <div class="iz-tip" id="izTip"></div>
+    </div>
+  </div>
+
+  <p class="iz-foot">ISARS 2026 서울 대회 구두발표 167편 · 데이터: 프로그램북 기반 자체 코딩</p>
+</div>
+
+<script>
+const DATA = [["Nguyen Thi Hien",5,1,2,"Vietnam"],["Nguyen Thi Thu Trang",7,1,2,"Vietnam"],["Truong Thuy Vi",7,1,2,"Vietnam"],["Tran Thi An",7,1,2,"Vietnam"],["Mai Thi Hanh",1,1,2,"Vietnam"],["Ranny Apriani Nusa",3,1,2,"Indonesia"],["Khusnul Khotimah",5,1,2,"Indonesia"],["Jerina Fujiantie",9,4,2,"Indonesia"],["Saniah",3,1,2,"Indonesia"],["Ivan Tacey",4,1,3,"UK"],["Haozhen Li",4,1,3,"Estonia"],["FNU Wuriga",5,1,4,"USA"],["Davide Torri",1,1,3,"Italy"],["Gwendolyne Knight",0,3,3,"Sweden"],["Sergio Poggianella",0,1,3,"Italy"],["Lila Banach",0,3,4,"Canada"],["Caterina Angela Agus",9,4,3,"Italy"],["Diana Riboli",6,1,3,"Greece"],["Yangkahao Vashum",6,1,4,"India"],["Garima Maheshwari",7,1,4,"India"],["Helena Karhu",6,1,3,"Finland"],["Yang Jongsung",10,1,0,"Korea"],["Mok Jin-ho",2,2,0,"Korea"],["O Mun-Seon",1,1,0,"Korea"],["Ban Hye-seong",1,1,0,"Korea"],["Carla Corradi Musi",1,5,3,"Italy"],["Giovanni Bazzana",8,5,4,"USA"],["Barbara Wilhelmi",8,5,3,"Germany"],["Anupama Sinha",1,1,4,"India"],["Rumi Roy",3,1,4,"India"],["Jeffery L. Macdonald",3,1,4,"USA"],["Sandip Kumar Mishra",1,1,4,"India"],["Dr. Lidia Guzy",1,1,3,"Ireland"],["Uwe Skoda",1,1,3,"Denmark"],["Soyun Lee",9,4,0,"Korea"],["Junhee Kim",1,1,0,"Korea"],["Park Seonghye",6,3,0,"Korea"],["Joonseong Lee",10,4,4,"USA"],["Bekah Harding",9,4,4,"USA"],["Wongi Jeong",2,2,0,"Korea"],["Tom Wang",2,0,1,"China"],["Kim Hyung-Kun",5,1,0,"Korea"],["Huh Yong-ho",5,0,0,"Korea"],["Lee Hyun-jung",4,1,0,"Korea"],["Lim Kyung-ji",4,1,0,"Korea"],["Dea Rifia Bella",1,1,1,"Taiwan"],["Taruh Payu",3,1,1,"Taiwan"],["Pi-chen Liu",3,1,1,"Taiwan"],["Yi-tze",3,1,1,"Taiwan"],["Zhuo Ni",1,3,1,"China"],["Li Yang",1,1,1,"China"],["Yidan Zhang",8,5,1,"Hong Kong"],["Ting Guo",8,5,4,"Canada"],["Runze Cao",4,1,1,"China"],["Stefano Beggiora",1,1,3,"Italy"],["Margaret Lyngdoh",1,3,3,"Estonia"],["Abhirup Sarkar",6,1,3,"Estonia"],["Semyon Petrukhin",1,1,4,"Russia"],["Marjorie Mandelstam Balzer",7,1,4,"USA"],["Khalikova Chinchi Eres-oolovna",1,0,4,"Russia"],["Lena Sidorova",1,1,4,"Russia"],["Seok-won Jin",3,0,0,"Korea"],["Hyun Kyeong Son",2,0,0,"Korea"],["Tom Wang",2,0,1,"China"],["Ullrich R. Kleinhempel",8,1,4,"South Africa"],["Humberto Schubert Coelho",1,1,4,"Brazil"],["Felicia Dujon",8,5,4,"Barbados"],["Agnieszka Podolecka",1,3,3,"Poland"],["Hak Lak Choi",1,1,0,"Korea"],["Seong Hee Oh",5,1,0,"Korea"],["In Kyoung Rhye",10,4,0,"Korea"],["Su Kyung Kim",10,4,0,"Korea"],["Yun Donghwan",5,1,0,"Korea"],["Lim Soojung",2,2,0,"Korea"],["Park Jeonggyeong",2,2,0,"Korea"],["Jeong Eunju",2,2,0,"Korea"],["Shin Heera",5,1,0,"Korea"],["Yong-Shik Lee",2,2,0,"Korea"],["Mi-young Kim",2,2,0,"Korea"],["Jungmin Seo",2,2,0,"Korea"],["Su Jung Ku",2,2,0,"Korea"],["Ji-hye Seo",2,2,0,"Korea"],["Sool Park",8,5,3,"Germany"],["Chun In Pyong",2,2,0,"Korea"],["Hanna Ellen Guttorm",1,1,3,"Finland"],["Yang Jongsung",10,1,0,"Korea"],["Seong Nae Kim",1,1,0,"Korea"],["Kim Dongkyu",1,3,0,"Korea"],["Liora Sarfati",9,4,4,"Israel"],["Andrea Kalff",1,0,3,"Germany"],["Veronica French",1,1,3,"Germany"],["Giovanna Parmigiani",4,1,4,"USA"],["Helena Karhu",6,1,3,"Finland"],["park Jeongae",6,1,0,"Korea"],["Shine",1,0,4,"Unknown"],["Gilah Yelin Hirsch",1,0,4,"USA"],["Galina Sychenko",2,2,3,"Italy"],["Seil Oh",9,4,0,"Korea"],["Jimin Oh",9,4,0,"Korea"],["Lin Kim",9,4,0,"Korea"],["Mikyoung Kim",9,4,0,"Korea"],["Yeonchang Sung",9,4,0,"Korea"],["Daria Kuznetsova",7,1,3,"Finland"],["Alice Ahern",9,4,3,"Ireland"],["Giorgio De Martino",2,2,3,"France"],["Veronica French",1,1,3,"Germany"],["Oleg Sidorov",1,1,4,"Russia"],["Alice Barale",10,5,3,"Italy"],["Agnieszka Podolecka",1,3,3,"Poland"],["Bobby Luthra Sinha",7,1,4,"India"],["Annapurna Pandey",7,1,4,"India"],["Fábio Stern",5,1,4,"Brazil"],["Joana Bahia",1,1,4,"Brazil"],["Naran Bilik",8,5,1,"China"],["Shuyun Guo",8,5,1,"China"],["Xiaoshuang Liu",8,5,1,"China"],["Maryam Abbasi",10,4,3,"Germany"],["Andrej Kapcar",10,4,3,"Czechia"],["Isabel Weitschies",10,4,3,"Germany"],["SUN YUTING",10,4,0,"Korea"],["Tegshbayar Gerelbayar",9,4,4,"Mongolia"],["Feng Liu",1,1,3,"Austria"],["Khishigsuren Dorj",1,1,4,"Mongolia"],["Chun In Pyong",2,2,0,"Korea"],["SO Inhwa",2,2,0,"Korea"],["Song Mee-hyang",2,2,0,"Korea"],["Jocelyn Clark",5,2,0,"Korea"],["Seah Hong",2,2,0,"Korea"],["Tran Hoai",9,4,2,"Vietnam"],["Cho Won-rae",1,1,0,"Korea"],["Yeong Ran Suh",6,1,0,"Korea"],["Kao Ya-ning",1,1,1,"Taiwan"],["Yayoi Mitsuda",1,1,1,"Taiwan"],["Chun Wei Daniel Lin",1,4,1,"Taiwan"],["Khalilah Nur 'Azmy",6,1,2,"Indonesia"],["Etienne Bourel",1,1,3,"Netherlands"],["Katarzyna Wojtylak",1,1,3,"Poland"],["Ullrich Kleinhempel",9,4,4,"South Africa"],["Feng Qu",7,1,1,"China"],["Haiyan Xing",6,1,1,"China"],["Yunfan Zhang",10,4,0,"Korea"],["Zhengting Zuo",1,1,1,"China"],["Youmi Kang",1,1,0,"Korea"],["Kim Younghee",2,1,0,"Korea"],["Sujie Kim",9,4,0,"Korea"],["Sadie-o Park",1,1,0,"Korea"],["Carolina Ivanescu",1,0,3,"Netherlands"],["Han Sang Kim",1,4,0,"Korea"],["Eunjung Kim",1,4,0,"Korea"],["Hyun Gyung Kim",1,4,0,"Korea"],["Antonetta L. Bruno",5,1,3,"Italy"],["Zavi Kang Engles",1,1,4,"USA"],["Victoria Soyan Peemot",1,1,3,"Finland"],["Jimena Bigá",1,1,3,"Finland"],["Artysh Mongush",9,4,4,"Russia"],["Dewi Sekar Farrasyifa",0,3,2,"Indonesia"],["Boon-Ooi Lee",1,1,2,"Singapore"],["Aglaia Iankovskaia",1,3,3,"UK"],["Hyun Suk Kim",1,1,0,"Korea"],["Myungsu Noh",4,1,0,"Korea"],["Sunjea Jay Lee",10,5,0,"Korea"],["WooHyun Jung",9,4,0,"Korea"],["Evgenia Fotiou",3,1,3,"Greece"],["Diana Espírito Santo",1,1,4,"Chile"],["Elsa Rossi",3,3,3,"UK"],["Hyoung-June Shim",10,6,0,"Korea"],["Hyun Kyeong Son",2,0,0,"Korea"]];
+const REG = ["한국", "중화권", "동남아", "유럽·서구", "기타"];
+const COUNTS = [60, 19, 13, 41, 34];
+const COLORS = ["#3d8b7c", "#d56b54", "#d6a02e", "#8b7bc4", "#a8a299"];
+const THEMES = ["역사·신화·고고", "의례 민족지·토착성", "음악·춤·공연예술", "치유·의료", "젠더·몸", "유산화·문화정치", "생태·다종", "정치·국가", "이론·정의·방법", "대중문화·미디어", "디지털·AI"];
+const METHODS = ["실천가·다큐멘터리", "민족지·현장연구", "공연·예술·음악 분석", "문헌·역사 분석", "매체·문화분석", "이론·개념 분석", "계산·정량 분석"];
+
+const NT = THEMES.length, NM = METHODS.length;
+const VBW = 1000, VBH = 660;
+const X0 = 150, X1 = 980, Y0 = 28, Y1 = 470;
+const stepX = (X1 - X0) / NT;
+const stepY = (Y1 - Y0) / NM;
+const cx = i => X0 + stepX * (i + 0.5);
+const cy = m => Y1 - stepY * (m + 0.5);
+
+// seeded PRNG
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+// group points per cell to size jitter
+const cells = {};
+DATA.forEach((d,i)=>{const k=d[1]+'_'+d[2];(cells[k]=cells[k]||[]).push(i);});
+
+const pos = new Array(DATA.length);
+Object.keys(cells).forEach(k=>{
+  const list = cells[k]; const c = list.length;
+  const JX = Math.min(34, 11 + Math.sqrt(c)*4.6);
+  const JY = Math.min(24, 8 + Math.sqrt(c)*3.4);
+  list.forEach((idx,j)=>{
+    const r = mulberry32(idx*2654435761 + 12345);
+    const ang = r()*Math.PI*2;
+    const rad = Math.sqrt(r());
+    const jx = Math.cos(ang)*rad*JX;
+    const jy = Math.sin(ang)*rad*JY;
+    const d = DATA[idx];
+    pos[idx] = [cx(d[1])+jx, cy(d[2])+jy];
+  });
+});
+
+const SVG='http://www.w3.org/2000/svg';
+const svg = document.getElementById('izSvg');
+function el(tag, attrs){const e=document.createElementNS(SVG,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+// gridlines
+for(let i=0;i<NT;i++){svg.appendChild(el('line',{x1:cx(i),x2:cx(i),y1:Y0,y2:Y1,stroke:'var(--grid)','stroke-width':1}));}
+for(let m=0;m<NM;m++){svg.appendChild(el('line',{x1:X0,x2:X1,y1:cy(m),y2:cy(m),stroke:'var(--grid)','stroke-width':1}));}
+
+// y labels (right aligned)
+for(let m=0;m<NM;m++){
+  const t=el('text',{x:X0-12,y:cy(m)+4,'text-anchor':'end',class:'iz-ylab'});
+  t.textContent=METHODS[m]; svg.appendChild(t);
+}
+// x labels (rotated)
+for(let i=0;i<NT;i++){
+  const t=el('text',{x:cx(i),y:Y1+18,'text-anchor':'end',class:'iz-xlab',transform:`rotate(-32 ${cx(i)} ${Y1+18})`});
+  t.textContent=THEMES[i]; svg.appendChild(t);
+}
+// axis names
+const xn=el('text',{x:(X0+X1)/2,y:VBH-12,'text-anchor':'middle',class:'iz-axisname'});
+xn.textContent='전통적  ←   연구 주제   →  동시대·디지털'; svg.appendChild(xn);
+const yn=el('text',{x:18,y:(Y0+Y1)/2,'text-anchor':'middle',class:'iz-axisname',transform:`rotate(-90 18 ${(Y0+Y1)/2})`});
+yn.textContent='경험·현지  ←   연구 방법   →  추상·계산'; svg.appendChild(yn);
+
+// dots
+const dotEls = [];
+const order = DATA.map((d,i)=>i).sort((a,b)=> DATA[b][3]-DATA[a][3]); // draw 기타 first, 한국 last on top
+order.forEach(i=>{
+  const d=DATA[i]; const [x,y]=pos[i];
+  const c=el('circle',{cx:x,cy:y,r:6.6,fill:COLORS[d[3]],'fill-opacity':0.88,stroke:'var(--bg)','stroke-width':1.3,class:'iz-dot'});
+  c.dataset.region=d[3]; c.dataset.idx=i;
+  svg.appendChild(c); dotEls[i]=c;
+});
+
+// ---- interactivity ----
+const ALL = REG.map((_,i)=>i);
+let active = new Set(ALL); // start all on
+
+const legend = document.getElementById('izLegend');
+const chips = [];
+REG.forEach((r,i)=>{
+  const chip=document.createElement('div');
+  chip.className='iz-chip'; chip.style.color=COLORS[i];
+  chip.innerHTML=`<span class="dot" style="background:${COLORS[i]}"></span><span style="color:var(--ink)">${r}</span><span class="num">${COUNTS[i]}</span>`;
+  chip.addEventListener('click',()=>toggle(i));
+  legend.appendChild(chip); chips[i]=chip;
+});
+const reset=document.createElement('button');
+reset.className='iz-reset'; reset.textContent='전체 보기';
+reset.addEventListener('click',()=>{active=new Set(ALL);render();});
+legend.appendChild(reset);
+
+function toggle(i){
+  const isAll = active.size===REG.length;
+  if(isAll){ active=new Set([i]); }            // first pick → isolate
+  else if(active.has(i)){
+    active.delete(i);
+    if(active.size===0) active=new Set(ALL);    // emptied → reset
+  } else { active.add(i); }                      // add for comparison
+  render();
+}
+
+const caption=document.getElementById('izCaption');
+function render(){
+  const isAll = active.size===REG.length;
+  dotEls.forEach((c,i)=>{
+    const on = active.has(DATA[i][3]);
+    c.classList.toggle('hidden', !on);
+  });
+  chips.forEach((chip,i)=>{
+    chip.classList.toggle('off', !active.has(i));
+    chip.classList.toggle('solo', !isAll && active.has(i));
+  });
+  if(isAll){
+    caption.innerHTML='표시 중: <b>전체 167편</b>';
+  } else {
+    const sel=[...active];
+    const tot=sel.reduce((s,i)=>s+COUNTS[i],0);
+    const names=sel.map(i=>`${REG[i]} ${COUNTS[i]}`).join(' · ');
+    caption.innerHTML=`표시 중: <b>${names}</b> (합 ${tot}편)`;
+  }
+}
+render();
+
+// ---- tooltip ----
+const tip=document.getElementById('izTip');
+const plot=document.getElementById('izPlot');
+let pinned=null;
+function showTip(i){
+  const d=DATA[i];
+  tip.innerHTML=`<div class="nm">${d[0]}</div>`+
+    `<div class="meta">${d[4]} · ${REG[d[3]]}</div>`+
+    `<span class="tag">${THEMES[d[1]]} × ${METHODS[d[2]]}</span>`;
+  const cr=dotEls[i].getBoundingClientRect();
+  const pr=plot.getBoundingClientRect();
+  let left=cr.left-pr.left+cr.width/2;
+  let top=cr.top-pr.top-10;
+  tip.style.left='0px'; tip.style.top='0px'; tip.classList.add('show');
+  const tw=tip.offsetWidth, th=tip.offsetHeight;
+  left=Math.max(6,Math.min(left-tw/2, pr.width-tw-6));
+  top=top-th;
+  if(top<2){ top=cr.top-pr.top+cr.height+10; }
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+}
+function hideTip(){tip.classList.remove('show');}
+
+dotEls.forEach((c,i)=>{
+  c.addEventListener('mouseenter',()=>{ if(pinned===null){c.setAttribute('r',9);c.setAttribute('fill-opacity',1);showTip(i);} });
+  c.addEventListener('mouseleave',()=>{ if(pinned===null){c.setAttribute('r',6.6);c.setAttribute('fill-opacity',0.88);hideTip();} });
+  c.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    if(pinned!==null){ dotEls[pinned].setAttribute('r',6.6);dotEls[pinned].setAttribute('fill-opacity',0.88); }
+    if(pinned===i){ pinned=null; hideTip(); }
+    else { pinned=i; c.setAttribute('r',9);c.setAttribute('fill-opacity',1); showTip(i); }
+  });
+});
+document.addEventListener('click',()=>{ if(pinned!==null){dotEls[pinned].setAttribute('r',6.6);dotEls[pinned].setAttribute('fill-opacity',0.88);pinned=null;hideTip();} });
+</script>
+</body>
+</html>
